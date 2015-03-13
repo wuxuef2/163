@@ -371,7 +371,7 @@ function distanceCal(curPuzzle, m, n)
             local x2 = math.floor((i - 1) % m)
             local y2 = math.floor((i - 1) / m)
             
-            distance = distance + math.abs(x1 - x2) + math.abs(x2 - y2)
+            distance = distance + math.abs(x1 - x2) + math.abs(y1 - y2)
         end        
     end
 
@@ -404,9 +404,9 @@ function getMoveDirection(curPuzzle, zero, m, n)
         if newX >= 0 and newX < m and newY >= 0 and newY < n then
             local position = newY * m + newX + 1            
             
-            local value = curPuzzle[position]
-            local trueX = math.floor((value - 1) % m)
-            local trueY = math.floor((value - 1) / m)
+            --local value = curPuzzle[position]
+            --local trueX = math.floor((value - 1) % m)
+            --local trueY = math.floor((value - 1) / m)
             --local cost = math.abs(trueX - newX) + math.abs(trueY - newY)
             
             table.insert(direction, {position, i})
@@ -439,11 +439,32 @@ function printTable(t)
     print(table.concat(t, ","))
 end
 
-function move(p, lastStep, maxStep, isSuc)
-    local puzzle = p.getNumbers()
-    local zero = getZero(puzzle)
-    local m = p.getM()
-    local n = p.getN()
+function isClose(value, position, direction, m, n)
+    local x = math.floor((position - 1) % m)
+    local y = math.floor((position - 1) / m)
+    
+    local trueX = math.floor((value - 1) % m)
+    local trueY = math.floor((value - 1) / m)
+    
+    if direction == 1 and trueY < y then
+        return -1
+    elseif direction == 2 and trueX > x then
+        return -1
+    elseif direction == 3 and trueY > y then
+        return -1
+    elseif direction == 4 and trueX < x then
+        return -1
+    else
+        return 1
+    end
+end
+
+isSuc = false
+function move(PUZZLE, lastStep, maxStep, cost)
+    local puzzle = PUZZLE.puzzle
+    local zero = PUZZLE.curZero
+    local m = PUZZLE.m
+    local n = PUZZLE.n
         
     local direction = getMoveDirection(puzzle, zero, m, n)
     
@@ -457,54 +478,74 @@ function move(p, lastStep, maxStep, isSuc)
         if isSuc or maxStep <= 0 then
             return
         end
-                     
-        if direction[i][2] ~= lastStep then
-            local myPuzzle = puzzle;
-            myPuzzle[direction[i][1]], myPuzzle[zero] = myPuzzle[zero], myPuzzle[direction[i][1]]
-            local key = puzzleHash(myPuzzle)            
-            
-            if distanceCal(myPuzzle, m, n) <= maxStep then
-                        
-                p.moveNumber(direction[i][1], direction[i][2])
-                local tmp
-                if isSuccess(p.getNumbers()) then
-                    isSuc = true
-                    return
-                else
-                    local int, fra = math.modf(direction[i][2] / 2)
-                    tmp = 4 - direction[i][2]
-                    if fra == 0 then
-                        tmp = 6 - direction[i][2]
-                    end
-                    --printTable(p.getNumbers()) 
-                    --print(maxStep)
-                    move(p, tmp, maxStep, isSuc)
-                end
+        
+        local close = isClose(puzzle[direction[i][1]], direction[i][1], direction[i][2], m, n)           
+        if direction[i][2] ~= lastStep and cost + close <= maxStep then
+                      
+              --move number and reset zero            
+              puzzle[direction[i][1]], puzzle[zero] = puzzle[zero], puzzle[direction[i][1]]
+              PUZZLE.curZero = direction[i][1]
+              table.insert(PUZZLE.path, {direction[i][1], direction[i][2]})
+              
+              local tmp
+              if isSuccess(PUZZLE.puzzle) then
+                  isSuc = true
+                  return
+              else
+                  local int, fra = math.modf(direction[i][2] / 2)
+                  tmp = 4 - direction[i][2]
+                  if fra == 0 then
+                      tmp = 6 - direction[i][2]
+                  end
+                  
+                  move(PUZZLE, tmp, maxStep, cost + close)
+                  
+                  if isSuc then return end
+              end
+              
                 
-                p.moveNumber(zero, tmp)
-                
-            end
+              puzzle[direction[i][1]], puzzle[zero] = puzzle[zero], puzzle[direction[i][1]]
+              PUZZLE.curZero = zero                        
+              table.remove(PUZZLE.path, #(PUZZLE.path))
         end  
     end  
 end
 
+
+
+function moveNumber(PUZZLE, p)
+    for i = 1, #(PUZZLE.path) do
+        p.moveNumber(PUZZLE.path[i][1], PUZZLE.path[i][2])
+    end
+end
+
 --自动复原的执行逻辑在将通过调用此函数实现，无需返回；
-function p4_SlidePuzzle(p)
-    local position = getZero(p.getNumbers())    
-    if isSuccess(p.getNumbers()) then
+function p4_SlidePuzzle(p)   
+    local puz = p.getNumbers()
+    local zero = getZero(puz)
+    
+    local PUZZLE = {
+        puzzle = puz,
+        m = p.getM(),
+        n = p.getN(),
+        initZero = zero,
+        curZero = zero,
+        path = {}
+    }
+        
+    if isSuccess(PUZZLE.puzzle) then
         return
     end
     
-    local puzzle = p.getNumbers()
-    local maxStep = distanceCal(puzzle, p.getM(), p.getN()) * 4
-    times = 1
-    while not isSuccess(p.getNumbers()) do
-        move(p, 0, maxStep, false)
-        maxStep = maxStep + 1
-        times = times + 1
-        
+    local monD = distanceCal(PUZZLE.puzzle, PUZZLE.m, PUZZLE.n)
+    local maxStep = monD
+    isSuc = false
+    while not isSuc do
+        move(PUZZLE, 0, maxStep, monD)
+        maxStep = maxStep + 1     
     end
-    print(times)
+    
+    moveNumber(PUZZLE, p)
 end
 
 --样例执行例子，与后台判题逻辑类似，请确保能跑通此基本用例才提交代码
@@ -524,9 +565,12 @@ end
 
 
 local function main()
-print (testSample(3,3,{1,2,3,4,5,6,7,0,8}))
+print (testSample(3,3,{1,2,3,4,0,6,7,5,8}))
+print (testSample(3,3,{3,2,1,7,4,5,6,0,8}))
 local t = os.time()
 print (testSample(4,4,{5,7,2,3,1,10,6,4,14,13,11,8,0,9,15,12}))
+print (testSample(4,4,{1,2,7,3,5,6,4,12,9,14,11,15,13,8,0,10}))
+--print (testSample(4,4,{1,5,10,2,11,7,6,0,14,15,3,8,13,9,4,12}))
 print(os.time() - t)
 end
 main()
