@@ -40,18 +40,16 @@ end
 
 ZERO = 1e-12
 function isZero(value)
-    ZERO = 1e-12
     return -1.0 * ZERO < value and value < 1.0 * ZERO
 end
 
 -- a ~= 0
 function cubic_Equations(a,b,c,d)
-    a = 1
     b = b / a
     c = c / a
     d = d / a
-    
-    
+    a = 1
+
     local A = b * b - 3 * a * c
     local B = b * c - 9 * a * d
     local C = c * c - 3 * b * d
@@ -85,17 +83,17 @@ function quadratic_Equations(a, b, c)
     local ans = {}
     local delta = b * b - 4 * a * c
 
-    if isZero(a) then
-        if not isZero(b) then
+    if a == 0 then
+        if b ~= 0 then
             table.insert(ans, -c / b)
         else
-            if isZero(c) then
+            if c == 0 then
                 table.insert(ans, 'all')
             end
         end
     elseif isZero(delta) then
         table.insert(ans, -b / (2 * a))
-    elseif delta > 0 then
+    elseif delta > ZERO then
         table.insert(ans, (-b + math.sqrt(delta)) / (2 * a))
         table.insert(ans, (-b - math.sqrt(delta)) / (2 * a))
     end
@@ -129,6 +127,7 @@ function p1_Equation(a,b,c,d)
     
     
 end
+
 
 --[[
 °æ∏±±æ’Û∑®°ø
@@ -378,6 +377,7 @@ function distanceCal(curPuzzle, m, n)
     return distance
 end
 
+--[[
 flag = {}
 function puzzleHash(puzzle) 
     local hash = puzzle[1]
@@ -389,7 +389,7 @@ function puzzleHash(puzzle)
     
     return hash
 end
-
+]]
 
 
 function getMoveDirection(curPuzzle, zero, m, n)
@@ -475,28 +475,36 @@ function move(PUZZLE, lastStep, maxStep, cost)
     end        
     
     for i = 1, #direction do
-        if isSuc or maxStep <= 0 then
-            return
-        end
-        
-        local close = isClose(puzzle[direction[i][1]], direction[i][1], direction[i][2], m, n)           
-        if direction[i][2] ~= lastStep and cost + close <= maxStep then
+        local dir = direction[i][2]
+        local num = direction[i][1]
+        local close = isClose(puzzle[num], num, dir, m, n)           
+        if dir ~= lastStep and cost + close <= maxStep then
                       
               --move number and reset zero            
-              puzzle[direction[i][1]], puzzle[zero] = puzzle[zero], puzzle[direction[i][1]]
-              PUZZLE.curZero = direction[i][1]
-              table.insert(PUZZLE.path, {direction[i][1], direction[i][2]})
+              puzzle[num], puzzle[zero] = puzzle[zero], puzzle[num]
+              PUZZLE.curZero = num
+              table.insert(PUZZLE.path, {num, dir})
               
               local tmp
-              if isSuccess(PUZZLE.puzzle) then
+              if (dir == 1 or dir == 4) and isSuccess(PUZZLE.puzzle) then
                   isSuc = true
                   return
               else
-                  local int, fra = math.modf(direction[i][2] / 2)
+                  --[[local int, fra = math.modf(direction[i][2] / 2)
                   tmp = 4 - direction[i][2]
                   if fra == 0 then
                       tmp = 6 - direction[i][2]
-                  end
+                  end]]
+                  
+                  if dir == 1 then
+                      tmp = 3
+                  elseif dir == 2 then
+                      tmp = 4
+                  elseif dir == 3 then
+                      tmp = 1
+                  else
+                      tmp = 2
+                  end 
                   
                   move(PUZZLE, tmp, maxStep, cost + close)
                   
@@ -504,7 +512,7 @@ function move(PUZZLE, lastStep, maxStep, cost)
               end
               
                 
-              puzzle[direction[i][1]], puzzle[zero] = puzzle[zero], puzzle[direction[i][1]]
+              puzzle[num], puzzle[zero] = puzzle[zero], puzzle[num]
               PUZZLE.curZero = zero                        
               table.remove(PUZZLE.path, #(PUZZLE.path))
         end  
@@ -528,7 +536,6 @@ function p4_SlidePuzzle(p)
         puzzle = puz,
         m = p.getM(),
         n = p.getN(),
-        initZero = zero,
         curZero = zero,
         path = {}
     }
@@ -538,13 +545,17 @@ function p4_SlidePuzzle(p)
     end
     
     local monD = distanceCal(PUZZLE.puzzle, PUZZLE.m, PUZZLE.n)
-    local maxStep = monD
+    local maxStep = monD * 3 / 2
     isSuc = false
+    
+    --local times = 0
     while not isSuc do
         move(PUZZLE, 0, maxStep, monD)
-        maxStep = maxStep + 1     
+        maxStep = maxStep + 1
+        --times = times + 1     
     end
     
+    --print(times)
     moveNumber(PUZZLE, p)
 end
 
@@ -571,6 +582,8 @@ local t = os.time()
 print (testSample(4,4,{5,7,2,3,1,10,6,4,14,13,11,8,0,9,15,12}))
 print (testSample(4,4,{1,2,7,3,5,6,4,12,9,14,11,15,13,8,0,10}))
 --print (testSample(4,4,{1,5,10,2,11,7,6,0,14,15,3,8,13,9,4,12}))
+print (testSample(4,4,{5,3,8,0,2,1,4,7,10,6,13,11,9,14,15,12}))
+print (testSample(4,4,{3,8,7,4,5,13,10,2,14,6,11,12,15,9,1,0}))
 print(os.time() - t)
 end
 main()
