@@ -45,10 +45,7 @@ end
 
 -- a ~= 0
 function cubic_Equations(a,b,c,d)
-    b = b / a
-    c = c / a
-    d = d / a
-    a = 1
+    b = b/a; c = c/a; d = d/a; a = 1
 
     local A = b * b - 3 * a * c
     local B = b * c - 9 * a * d
@@ -127,6 +124,8 @@ function p1_Equation(a,b,c,d)
     
     
 end
+
+
 
 
 --[[
@@ -336,7 +335,9 @@ function newPuzzle(m,n,initialPuzzle)
     }
 end
 
-
+--[[
+  判断是否得到解
+]]
 function isSuccess(t)
     local len = #(t) - 1
     
@@ -346,19 +347,26 @@ function isSuccess(t)
         end
     end
     
-    return t[#(t)] == 0
+    return true
 end
 
-function getZero(t)
-    for key, value in ipairs(t) do
-        if value == 0 then
-            return key
+--[[
+  获得puzzle中零的位置
+]]
+function getZero(t)  
+    for i = 1, #t do
+        if t[i] == 0 then
+            return i
         end
     end
     
     return 0 
 end
 
+--[[
+  计算曼哈顿距离 manD = sum(abs(x1 - x2) + abs(y1 - y2))
+  累加所有位置
+]]
 function distanceCal(curPuzzle, m, n)
     local distance = 0 
     for i = 1, m * n do
@@ -377,68 +385,14 @@ function distanceCal(curPuzzle, m, n)
     return distance
 end
 
---[[
-flag = {}
-function puzzleHash(puzzle) 
-    local hash = puzzle[1]
-    base = 16
-    for i = 2, #puzzle do
-        hash = hash + puzzle[i] * base
-        base = base * 16
-    end
-    
-    return hash
-end
-]]
-
-
-function getMoveDirection(curPuzzle, zero, m, n)
-    local x = math.floor((zero - 1) % m)
-    local y = math.floor((zero - 1) / m)
-    local moveSteps = {{0,1}, {-1,0}, {0,-1}, {1,0}}
-
-    local direction = {}
-    for i = 1, 4 do
-        local newX = x + moveSteps[i][1]
-        local newY = y + moveSteps[i][2]
-        if newX >= 0 and newX < m and newY >= 0 and newY < n then
-            local position = newY * m + newX + 1            
-            
-            --local value = curPuzzle[position]
-            --local trueX = math.floor((value - 1) % m)
-            --local trueY = math.floor((value - 1) / m)
-            --local cost = math.abs(trueX - newX) + math.abs(trueY - newY)
-            
-            table.insert(direction, {position, i})
-        end
-    end
-    
-    --[[
-    for i = 2, #direction do
-        local val = direction[i]
-        local index = 0
-        for j = i - 1, 1, -1 do
-            index = j
-            if direction[j][3] < val[3] then
-                direction[j + 1] = direction[j]
-            else  
-                break
-            end
-        end
-       
-        if index ~= i - 1 then
-            direction[index] = val    
-        end
-    end
-    ]]
-    
-    return direction
-end
-
 function printTable(t)
     print(table.concat(t, ","))
 end
 
+--[[
+  在移动过程中，每一个步骤对当前节点离解的曼哈顿距离只能是+1(更远了)或者-1（更近了）
+  
+]]
 function isClose(value, position, direction, m, n)
     local x = math.floor((position - 1) % m)
     local y = math.floor((position - 1) / m)
@@ -446,6 +400,7 @@ function isClose(value, position, direction, m, n)
     local trueX = math.floor((value - 1) % m)
     local trueY = math.floor((value - 1) / m)
     
+    -- 如果解的Y < 当前节点的Y 那么向上移动，会离解更近，原有曼哈顿距离-1 （下面类似）
     if direction == 1 and trueY < y then
         return -1
     elseif direction == 2 and trueX > x then
@@ -459,70 +414,92 @@ function isClose(value, position, direction, m, n)
     end
 end
 
-isSuc = false
+isSuc = false --判断是否找到解，回溯过程中使用...
+
+--[[
+  PUZZLE 记录移动过程中需要用到的变量
+  lastStep 上个步骤的移动方向，避免走回头路
+  maxStep  指定的最深移动深度，超过个深度则返回
+  cost     当前节点到解的曼哈顿距离
+]]
 function move(PUZZLE, lastStep, maxStep, cost)
-    local puzzle = PUZZLE.puzzle
-    local zero = PUZZLE.curZero
-    local m = PUZZLE.m
-    local n = PUZZLE.n
-        
-    local direction = getMoveDirection(puzzle, zero, m, n)
-    
+    --如果成功，或者已经移动到指定的最大深度则返回
     if isSuc or maxStep <= 0 then 
         return
     else
         maxStep = maxStep - 1
-    end        
+    end
     
-    for i = 1, #direction do
-        local dir = direction[i][2]
-        local num = direction[i][1]
-        local close = isClose(puzzle[num], num, dir, m, n)           
-        if dir ~= lastStep and cost + close <= maxStep then
-                      
-              --move number and reset zero            
-              puzzle[num], puzzle[zero] = puzzle[zero], puzzle[num]
-              PUZZLE.curZero = num
-              table.insert(PUZZLE.path, {num, dir})
-              
-              local tmp
-              if (dir == 1 or dir == 4) and isSuccess(PUZZLE.puzzle) then
-                  isSuc = true
-                  return
-              else
-                  --[[local int, fra = math.modf(direction[i][2] / 2)
-                  tmp = 4 - direction[i][2]
-                  if fra == 0 then
-                      tmp = 6 - direction[i][2]
-                  end]]
-                  
-                  if dir == 1 then
-                      tmp = 3
-                  elseif dir == 2 then
-                      tmp = 4
-                  elseif dir == 3 then
-                      tmp = 1
-                  else
-                      tmp = 2
-                  end 
-                  
-                  move(PUZZLE, tmp, maxStep, cost + close)
-                  
-                  if isSuc then return end
-              end
-              
+    
+    local puzzle = PUZZLE.puzzle
+    local zero = PUZZLE.curZero
+    local m = PUZZLE.m
+    local n = PUZZLE.n
+    
+        
+    local x = math.floor((zero - 1) % m)
+    local y = math.floor((zero - 1) / m)
+    -- 0位置的移动方向与非0位置向0移动的方向相反，所能moveSteps与newPuzzle提供的moveSteps是相反的
+    local moveSteps = {{0,1}, {-1,0}, {0,-1}, {1,0}}
+    
+    -- 寻找可能的移动
+    for i = 1, 4 do
+        local newX = x + moveSteps[i][1]
+        local newY = y + moveSteps[i][2]
+        
+        
+        -- 判断是否超出范围
+        if newX >= 0 and newX < m and newY >= 0 and newY < n then
+            --要移动的数字的位置
+            local num = newY * m + newX + 1            
+            local close = isClose(puzzle[num], num, i, m, n)
+            
+            -- 如果不等于上次移动的方向 和 当前的曼哈顿距离小于指定的最大深度
+            if i ~= lastStep and cost + close <= maxStep then
+                -- 记住当前的节点
+                puzzle[num], puzzle[zero] = puzzle[zero], puzzle[num]
+                PUZZLE.curZero = num
+                                
+                -- 记住移动方向
+                --table.insert(PUZZLE.path, {num, i})
+                PUZZLE.step = PUZZLE.step + 1
+                PUZZLE.path[PUZZLE.step] = {num, i}                
                 
-              puzzle[num], puzzle[zero] = puzzle[zero], puzzle[num]
-              PUZZLE.curZero = zero                        
-              table.remove(PUZZLE.path, #(PUZZLE.path))
-        end  
-    end  
+                -- 获得这次移动方向相反的方向，使得下次不移动这个方向
+                local tmp
+                if (i == 1 or i == 4) and isSuccess(PUZZLE.puzzle) then
+                    isSuc = true
+                    return
+                else                    
+                    if i == 1 then
+                        tmp = 3
+                    elseif i == 2 then
+                        tmp = 4
+                    elseif i == 3 then
+                        tmp = 1
+                    else
+                        tmp = 2
+                    end 
+                    
+                    -- 继续深入
+                    move(PUZZLE, tmp, maxStep, cost + close)                    
+                    if isSuc then return end
+                end
+                
+                -- 回溯，恢复原来的状态  
+                puzzle[num], puzzle[zero] = puzzle[zero], puzzle[num]
+                PUZZLE.curZero = zero                        
+                --table.remove(PUZZLE.path, #(PUZZLE.path))
+                PUZZLE.step = PUZZLE.step - 1
+              end
+        end
+    end     
 end
 
 
-
+--根据记住的路径，操作newPuzzle提供的函数获得答案
 function moveNumber(PUZZLE, p)
-    for i = 1, #(PUZZLE.path) do
+    for i = 1, PUZZLE.step do
         p.moveNumber(PUZZLE.path[i][1], PUZZLE.path[i][2])
     end
 end
@@ -532,30 +509,35 @@ function p4_SlidePuzzle(p)
     local puz = p.getNumbers()
     local zero = getZero(puz)
     
+    --记录移动过程中需要用到的变量
     local PUZZLE = {
-        puzzle = puz,
-        m = p.getM(),
-        n = p.getN(),
-        curZero = zero,
-        path = {}
+        puzzle = puz,   --当前节点
+        m = p.getM(),   --当前节点宽度
+        n = p.getN(),   --当前节点高度
+        curZero = zero, --当前节点0的位置
+        path = {},       --移动到当前节点的路径
+        step = 0
     }
         
     if isSuccess(PUZZLE.puzzle) then
         return
     end
     
+    --原始节点和解之间的曼哈顿距离
     local monD = distanceCal(PUZZLE.puzzle, PUZZLE.m, PUZZLE.n)
+    
+    --指定的最大深度，若移动到最大深度，则最大深度  + 1， 继续寻找新
     local maxStep = monD * 3 / 2
     isSuc = false
-    
     --local times = 0
     while not isSuc do
+        PUZZLE.step = 0
         move(PUZZLE, 0, maxStep, monD)
-        maxStep = maxStep + 1
-        --times = times + 1     
+        maxStep = maxStep + 1  
     end
     
-    --print(times)
+    
+    -- 使用找到的路径，操作newPuzzle提供的函数，获得问题最终的解
     moveNumber(PUZZLE, p)
 end
 
@@ -579,11 +561,11 @@ local function main()
 print (testSample(3,3,{1,2,3,4,0,6,7,5,8}))
 print (testSample(3,3,{3,2,1,7,4,5,6,0,8}))
 local t = os.time()
-print (testSample(4,4,{5,7,2,3,1,10,6,4,14,13,11,8,0,9,15,12}))
-print (testSample(4,4,{1,2,7,3,5,6,4,12,9,14,11,15,13,8,0,10}))
---print (testSample(4,4,{1,5,10,2,11,7,6,0,14,15,3,8,13,9,4,12}))
-print (testSample(4,4,{5,3,8,0,2,1,4,7,10,6,13,11,9,14,15,12}))
-print (testSample(4,4,{3,8,7,4,5,13,10,2,14,6,11,12,15,9,1,0}))
+--print (testSample(4,4,{5,7,2,3,1,10,6,4,14,13,11,8,0,9,15,12}))
+--print (testSample(4,4,{1,2,7,3,5,6,4,12,9,14,11,15,13,8,0,10}))
+print (testSample(4,4,{3,2,4,8,1,5,12,10,14,13,11,7,15,0,9,6}))
+--print (testSample(4,4,{5,3,8,0,2,1,4,7,10,6,13,11,9,14,15,12}))
+--print (testSample(4,4,{3,8,7,4,5,13,10,2,14,6,11,12,15,9,1,0}))
 print(os.time() - t)
 end
 main()
